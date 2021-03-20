@@ -1,4 +1,4 @@
-module github.com/jamesatttensure/configfetcher
+module github.com/jamesattensure/configfetcher
 
 go 1.15
 
