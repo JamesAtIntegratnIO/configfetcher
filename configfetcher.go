@@ -15,19 +15,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// GetConfig is the entry point ineterface to either get the raw data or to populate a struct
-type GetConfig interface {
-	Data(useGCPSecrets bool, filePath string) ([]byte, error)
-	Struct(useGCPSecrets bool, configType string, filePath string, configStruct interface{}) error
-}
-
-// Data
+// GetConfigData
 // useGCPSecrets (bool): If set it is expected that the following environment variables are set:
 //		PROJECT_ID
 //		SECRET_NAME
 //		SECRET_VERSION
 // filePath (string): If passing a yaml or json file directly this points to the file. If not used just give empty "".
-func Data(useGCPSecrets bool, filePath string) ([]byte, error) {
+func GetConfigData(useGCPSecrets bool, filePath string) ([]byte, error) {
 	if useGCPSecrets {
 		gcloudVars := setGcloudVars()
 		data, err := gcloudVars.getSecretFromGSM()
@@ -41,11 +35,10 @@ func Data(useGCPSecrets bool, filePath string) ([]byte, error) {
 			return nil, err
 		}
 		return data, nil
-
 	}
 }
 
-// Struct populates a struct to provide a config
+// GetConfigStruct populates a struct to provide a config
 // useGCPSecrets (bool): If set it is expected that the following environment variables are set:
 //		PROJECT_ID
 //		SECRET_NAME
@@ -53,11 +46,11 @@ func Data(useGCPSecrets bool, filePath string) ([]byte, error) {
 // configType (string): expects `yaml` or `json` to properly unmarshal the data into the struct
 // filePath (string): If passing a yaml or json file directly this points to the file. If not used just give empty "".
 // config (interface{}): expects a struct that has either yaml or json mappings and matches the data that is used to populate it.
-func Struct(useGCPSecrets bool,
+func GetConfigStruct(useGCPSecrets bool,
 	configType string,
 	filePath string, configStruct interface{}) error {
 
-	data, err := Data(useGCPSecrets, filePath)
+	data, err := GetConfigData(useGCPSecrets, filePath)
 	if err != nil {
 		return err
 	}
