@@ -18,7 +18,7 @@ import (
 // GetConfig is the entry point ineterface to either get the raw data or to populate a struct
 type GetConfig interface {
 	Data(useGCPSecrets bool, filePath string) ([]byte, error)
-	Struct(useGCPSecrets bool, yamlConfig bool, jsonConfig bool, filePath string, config interface{}) error
+	Struct(useGCPSecrets bool, configType string, filePath string, configStruct interface{}) error
 }
 
 // Data
