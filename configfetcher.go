@@ -1,4 +1,4 @@
-// Package configfetcher provides a simple abastraction to fetch config values
+// Package configfetcher provides a simple abstraction to fetch config values
 // from a file or GCP Secrets Manager to populate a struct.
 package configfetcher
 
