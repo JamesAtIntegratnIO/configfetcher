@@ -15,42 +15,31 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// GetConfigData
-// useGCPSecrets (bool): If set it is expected that the following environment variables are set:
-//		PROJECT_ID
-//		SECRET_NAME
-//		SECRET_VERSION
-// filePath (string): If passing a yaml or json file directly this points to the file. If not used just give empty "".
-func GetConfigData(useGCPSecrets bool, filePath string) ([]byte, error) {
-	if useGCPSecrets {
-		gcloudVars := setGcloudVars()
-		data, err := gcloudVars.getSecretFromGSM()
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	} else {
-		data, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	}
-}
-
-// GetConfigStruct populates a struct to provide a config
-// useGCPSecrets (bool): If set it is expected that the following environment variables are set:
+// GetConfigStructFromGCPSM populates a struct to provide a config
+// It is expected that the following environment variables are set:
 //		PROJECT_ID
 //		SECRET_NAME
 //		SECRET_VERSION
 // configType (string): expects `yaml` or `json` to properly unmarshal the data into the struct
+// config (interface{}): expects a struct that has either yaml or json mappings and matches the data that is used to populate it.
+func GetConfigStructFromGCPSM(configType string, configStruct interface{}) error {
+	gcloudVars := setGcloudVars()
+	data, err := gcloudVars.getSecretFromGSM()
+	if err != nil {
+		return err
+	}
+	if err := getYamlOrJsonData(configType, data, configStruct); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetConfigStructFromFile populates a struct to provide a config
+// configType (string): expects `yaml` or `json` to properly unmarshal the data into the struct
 // filePath (string): If passing a yaml or json file directly this points to the file. If not used just give empty "".
 // config (interface{}): expects a struct that has either yaml or json mappings and matches the data that is used to populate it.
-func GetConfigStruct(useGCPSecrets bool,
-	configType string,
-	filePath string, configStruct interface{}) error {
-
-	data, err := GetConfigData(useGCPSecrets, filePath)
+func GetConfigStructFromFile(configType string, filePath string, configStruct interface{}) error {
+	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -73,7 +62,7 @@ func getYamlOrJsonData(configType string, data []byte, configStruct interface{})
 			return err
 		}
 	default:
-		return errors.New("invalid `configType` provided. expects a string of yaml or json to match the data type that is being unmarshaled")
+		return errors.New("invalid `configType` provided. expects a string of `yaml` or `json` to match the data type that is being unmarshaled")
 	}
 	return nil
 }
