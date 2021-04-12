@@ -10,5 +10,6 @@ require (
 	golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4 // indirect
 	google.golang.org/api v0.42.0 // indirect
 	google.golang.org/genproto v0.0.0-20210319143718-93e7006c17a6
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
