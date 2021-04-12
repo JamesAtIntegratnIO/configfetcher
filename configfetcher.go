@@ -15,49 +15,50 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// GetConfigStructFromGCPSM populates a struct to provide a config
-// It is expected that the following environment variables are set:
-//		PROJECT_ID
-//		SECRET_NAME
-//		SECRET_VERSION
-// configType (string): expects `yaml` or `json` to properly unmarshal the data into the struct
-// config (interface{}): expects a struct that has either yaml or json mappings and matches the data that is used to populate it.
-func GetConfigStructFromGCPSM(configType string, configStruct interface{}) error {
-	gcloudVars := setGcloudVars()
-	data, err := gcloudVars.getSecretFromGSM()
-	if err != nil {
-		return err
-	}
-	if err := getYamlOrJsonData(configType, data, configStruct); err != nil {
-		return err
-	}
-	return nil
+// GcloudVars contains the data needed to connect to GCP Secret Manager
+type GcloudVars struct {
+	ProjectID     string
+	SecretName    string
+	SecretVersion string
 }
 
-// GetConfigStructFromFile populates a struct to provide a config
-// configType (string): expects `yaml` or `json` to properly unmarshal the data into the struct
-// filePath (string): If passing a yaml or json file directly this points to the file. If not used just give empty "".
-// config (interface{}): expects a struct that has either yaml or json mappings and matches the data that is used to populate it.
-func GetConfigStructFromFile(configType string, filePath string, configStruct interface{}) error {
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	if err := getYamlOrJsonData(configType, data, configStruct); err != nil {
-		return err
-	}
-	return nil
+// Data contains everything needed to interact with this abstraction
+type Data struct {
+	ConfigData []byte
+	GcloudVars
+	ConfigStruct interface{}
 }
 
-func getYamlOrJsonData(configType string, data []byte, configStruct interface{}) error {
+// ReadGCPSMSecret returns the Data struct and error after attempting to fetch the environment variables:
+//	`PROJECT_ID`      required
+//	`SECRET_NAME`     required
+//	`SECRET_VERSION`  optional
+func (d *Data) ReadGCPSMSecret() (*Data, error) {
+	d.setGcloudVars()
+	return d.getSecretFromGSM()
+}
+
+// ReadFile returns the Data struct after attempting to read the data from a file
+func (d *Data) ReadFile(filePath string) (*Data, error) {
+	var err error
+	d.ConfigData, err = ioutil.ReadFile(filePath)
+	return d, err
+}
+
+// GetConfigStruct populates the Data.ConfigStruct interface with the data from Data.ConfigData
+// It expects either `ReadGCPSMSecret()` or `ReadFile()` has been ran to populate Data.ConfigData
+func (d *Data) GetConfigStruct(configType string) error {
+	if d.ConfigData == nil {
+		return errors.New("no config data provided\npopulate with ReadGCPSMSecret() or ReadFile()")
+	}
 	switch configType {
 	case "yaml":
-		err := yaml.Unmarshal([]byte(data), &configStruct)
+		err := yaml.Unmarshal([]byte(d.ConfigData), &d.ConfigStruct)
 		if err != nil {
 			return err
 		}
 	case "json":
-		err := json.Unmarshal([]byte(data), &configStruct)
+		err := json.Unmarshal([]byte(d.ConfigData), d.ConfigStruct)
 		if err != nil {
 			return err
 		}
@@ -67,12 +68,6 @@ func getYamlOrJsonData(configType string, data []byte, configStruct interface{})
 	return nil
 }
 
-type gcloudVars struct {
-	projectID     string
-	secretName    string
-	secretVersion string
-}
-
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -80,16 +75,15 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func setGcloudVars() gcloudVars {
-	return gcloudVars{
-		getEnv("PROJECT_ID", ""),
-		getEnv("SECRET_NAME", ""),
-		getEnv("SECRET_VERSION", "latest"),
-	}
+func (d *Data) setGcloudVars() *Data {
+	d.ProjectID = getEnv("PROJECT_ID", "")
+	d.SecretName = getEnv("SECRET_NAME", "")
+	d.SecretVersion = getEnv("SECRET_VERSION", "latest")
+	return d
 }
 
-func (g gcloudVars) getSecretFromGSM() ([]byte, error) {
-	if g.projectID == "" || g.secretName == "" {
+func (d *Data) getSecretFromGSM() (*Data, error) {
+	if d.ProjectID == "" || d.SecretName == "" {
 		return nil, errors.New(`
 		environment variables for gcp are not set
 		please set 'PROJECT_ID', 'SECRET_NAME', and 'SECRET_VERSION'
@@ -102,13 +96,14 @@ func (g gcloudVars) getSecretFromGSM() ([]byte, error) {
 	}
 	req := &pb.AccessSecretVersionRequest{
 		Name: fmt.Sprintf("projects/%s/secrets/%s/versions/%s",
-			g.projectID,
-			g.secretName,
-			g.secretVersion),
+			d.ProjectID,
+			d.SecretName,
+			d.SecretVersion),
 	}
 	resp, err := c.AccessSecretVersion(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return resp.Payload.Data, nil
+	d.ConfigData = resp.Payload.Data
+	return d, nil
 }
